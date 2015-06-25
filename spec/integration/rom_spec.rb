@@ -12,9 +12,7 @@ describe "ROM integration" do
 
       list do
         field :emails do
-          list do
-            unwrap from: :email
-          end
+          list { uncover from: :email }
         end
       end
     end
