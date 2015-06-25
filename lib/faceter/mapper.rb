@@ -37,64 +37,62 @@ module Faceter
   #
   # @api public
   #
-  class Mapper < SimpleDelegator
+  class Mapper
 
     # @private
     class << self
 
-      # The current state of transproc, provided by the builder-carried AST
+      # The builder of AST
       #
-      # @return [::Transproc::Function]
-      #
-      def transproc
-        tree.transproc
-      end
-
-      private
-
-      # The object that carries the AST and adds new branches to it using DSL
-      #
-      # @return [Builder]
-      #
-      # @api private
+      # @return [Transproc::Function]
       #
       def builder
         @builder ||= Builder.new
       end
 
-      # The optimized AST having been built and carried by the builder
-      #
-      # @return [Faceter::AST::Root]
-      #
-      def tree
-        builder.finalize
-      end
+      private
 
-      # Allows builder DSL method to be called from a class scope
-      # as if they were the class methods
+      # Allows builder's DSL methods to be called from a class scope
       #
       # @private
-      def method_missing(*args, &block)
-        builder.public_send(*args, &block)
+      #
+      def method_missing(name, *args, &block)
+        super unless respond_to? name
+        @builder = Builder.new(builder.tree) do
+          __send__(name, *args, &block)
+        end
       end
 
-      def respond_to_missing?(*args)
-        builder.respond_to?(*args)
+      def respond_to_missing?(name, *)
+        DSL.defines?(name)
       end
 
     end # eigenclass
 
     # @!scope class
     # @!method new
-    # Creates an instance that wraps a transproc from the current state of AST
+    # Creates an instance that wraps a transproc from the optimized AST
     #
     # @example
     #   mapper = Faceter.new
     #
     # @return [Faceter]
     #
-    def self.new
-      super(transproc).freeze
+    def initialize
+      @tree = Optimizer[self.class.builder.tree]
+      @transproc = @tree.transproc
+      freeze
+    end
+
+    # Transforms the data
+
+    #
+    # @param [Object] data
+    #
+    # @return [Object]
+    #
+    def call(data)
+      @transproc.call(data)
     end
 
   end # class Mapper

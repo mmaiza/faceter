@@ -15,7 +15,18 @@ Faceter
 [travis]: https://travis-ci.org/nepalez/faceter
 [inch]: https://inch-ci.org/github/nepalez/faceter
 
-Experimental [ROM](https://github.com/rom-rb/rom)-compatible data mapper, based on the [transproc](https://github.com/solnic/transproc) gem by [Piotr Solnica](https://github.com/solnic).
+Experimental [ROM]-compatible data mapper, based on the [transproc] gem.
+
+No monkey-patching, no mutable instances of any class.
+
+100% [mutant]-covered.
+
+[ROM]: https://github.com/rom-rb/rom
+[transproc]: https://github.com/solnic/transproc
+[mutant]: https://github.com/mbj/mutant
+
+Motivation
+----------
 
 Basicaly the gem does about the same as the ROM mappers do. But its DSL has a different semantics:
 
@@ -27,9 +38,9 @@ Basicaly the gem does about the same as the ROM mappers do. But its DSL has a di
 
 * Because `Faceter` uses one-step transformations, it supports inline syntax for the transformations only. Blocks are used either to browse the data, or to provide value for the `create` command.
 
-* Because `Faceter` describes transformations, not the structure of the output, mappers inheritance works differently. When you inherit a mapper, the subclass will do all the transformations from its superclass and then add its own.
+* When you inherit a mapper, the subclass will do all the transformations from its superclass and then add its own. So the inheritance can be used to deepen transformation as an alternative to chaining mappers.
 
-The `Faceter` is the **experimental** gem. I've wrote it to check whether this "concept" of procedure-like syntax would work fine and not overkill the recipy with details.
+The `Faceter` is the **experimental** gem. I've wrote it to check whether this "concept" of procedure-like syntax would work fine and not overkill the recipy with too much details.
 
 Synopsis
 --------
@@ -73,12 +84,10 @@ class Mapper
 
   list do
     field :roles do
-      list do
-        wrap to: :role
-      end
+      list { fold to: :role }
     end
 
-    rename  :emails, to: :contacts
+    rename :emails, to: :contacts
   end
 
   # Both `ungroup` and `group` work with arrays as a whole. You haven't
@@ -90,10 +99,7 @@ class Mapper
   list do
     field :user do
       field :contacts do
-        list do
-          rename :address, to: :email
-        end
-
+        list { rename :address, to: :email }
         group :address, to: :emails
       end
     end
@@ -159,7 +165,7 @@ class Mapper
   list do
     wrap to: :user # wraps all keys in every tuple to the :user key
 
-    create from: [:user] do |user|
+    create from: :user do |user|
       OpenStruct.new(user)
     end
   end
@@ -251,56 +257,6 @@ Or add it manually:
 gem install faceter
 ```
 
-Under the Hood
---------------
-
-The gem is organized dead simple. When you declare a subclass of the `Faceter`, it is created with the AST (Abstract Syntax Tree, describing the transformation) builder.
-
-At the first moment the builder (`lib/faceter/builder.rb`) carries the empty AST, that is later populated by nodes with the help of mapper DSL (`lib/faceter/dsl.rb`).
-
-Every DSL method just adds a node (either nesting branch, or leaf transformation) to current level of the tree. 
-The base class for nodes is placed to `lib/faceter/ast.rb`, its implementations for various nodes lay in the `lib/faceter/ast/` folder.
-
-Every node of the AST has a `#transproc` instance method that defines a transformation of data on the current level of nesting (including all transformations defined by the subtree of this node). The mapper `#call` instance method just invokes the `#transproc` of the root of the AST with a source data.
-
-One more detail. Before invocation of the root `transproc`, the `call` method optimizes the tree. At every level of nesting two consecutive branches of the tree are merged, if they describe the same layer. The AST from the following example:
-
-```ruby
-list do
-  field :foo do
-    rename :bar, to: :qux
-  end
-end
-
-list
-  field :foo do
-    rename :baz, to: :quxx
-  end
-end
-```
-
-becomes the same as from:
-
-```ruby
-list do
-  field :foo do
-    rename :bar, to: :qux
-    rename :baz, to: :quxx
-  end
-end
-```
-
-### Adding new command to the mapper DSL
-
-To create a new DSL command:
-
-* Provide a new class, describing the command as a node of the Abstract Syntax Tree (`lib/faceter/ast/my_new_node.rb`).
-  Inherit it from either `Faceter::AST::Node` for transformations, or from `Faceter::AST::Root` for branches.
-* Define the `#transproc` method, that is either transforms the current data, or composes `transprocs` of its subnodes.
-* For branches define the equality `==`, that is used for merging branches that describe the same level of nesting.
-* Reload the `inspect` method that depictures the node if necessary.
-* Register the node under the new method in `NODES` constant of the DSL (`lib/faceter/dsl.rb`).
-
 Compatibility
 -------------
 
@@ -325,10 +281,12 @@ Contributing
 Credits
 -------
 
-This project is heavily inspired by and based on two gems written by [Piotr Solnica](https://github.com/solnic):
+This project is heavily inspired by and based on gems written by [Piotr Solnica]:
 
-* [rom](https://github.com/solic/rom) (Ruby Object Mapper)
-* [transproc](https://github.com/solnic/transproc) Functional-style transformations in Ruby
+* [ROM] aka Ruby Object Mapper
+* [transproc] Functional-style transformations in Ruby
+
+[Piotr Solnica]: https://github.com/solnic
 
 License
 -------

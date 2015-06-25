@@ -2,55 +2,41 @@
 
 module Faceter
 
-  # Class Builder carries the AST and uses DSL methods to add new nodes to it.
+  # Builds the immutable abstract syntax tree (AST) using DSL commands.
   #
-  # Builder instance is initialized either with a root of the AST
-  # (a `Faceter::AST::Root` node), or with a subtree node.
-  # Then it uses DSL methods to add new child nodes to that tree.
-  #
-  # DSL methods are just a thin wrappers about one of two methods: `add_branch`
-  # and `add_leaf`, that define how to add nodes to the AST.
+  # Defines the [#transproc] method to return a transformation function,
+  # described by the optimized AST.
   #
   # @example
-  #   list = List.new
-  #   builder = Builder.new(list)
-  #   builder.tree
-  #   # => #<Faceter::AST::List @nodes=[]>
+  #   builder = Builder.new do
+  #     field :user do     # DSL method
+  #       add_prefix :user # DSL method for subtree
+  #     end
+  #   end
   #
-  #   builder.rename :foo, to: :bar
-  #   builder.tree
-  #   # => #<Faceter::AST::List
-  #   #      @nodes=[#<Faceter::AST::Rename @old_name=:foo @new_name=:bar>]
-  #   #    >
+  #   tree.finalize
+  #   # => <Root() [<Field(:user) [<AddPrefix(:user)>]>]>
   #
   class Builder
 
-    extend Faceter::DSL # provides the `defines` helper method
+    # @private
+    def initialize(tree = Branch.new, &block)
+      @tree = tree
+      instance_eval(&block) if block_given? # applies DSL command to the @tree
+      freeze
+    end
 
     # @!attribute [r] tree
     #
-    # @return [Faceter::Node] the AST being populated with nodes
+    # @return [Faceter::Branch] The root node of the AST
     #
     attr_reader :tree
 
-    # @private
-    def initialize(tree = Faceter::AST::Root.new)
-      @tree = tree.dup
-    end
-
-    # DSL methods for adding specific nodes to AST
+    # Returns the finalized (valid) AST after build
     #
-    # Every DSL method calls either `add_branch`, or `add_leaf` with a
-    # corresponding node type
+    # @return [Faceter::Branch]
     #
-    defines %w(
-      add_prefix create exclude field group list remove_prefix rename
-      stringify_keys symbolize_keys ungroup unwrap wrap
-    )
-
-    # Finalizes AST by merging branches that describe the same level of nesting
-    #
-    # @return [Faceter::AST::Root] the compacted tree
+    # @raise [Error] When the tree contains invalid (useless) branches
     #
     def finalize
       tree.finalize
@@ -58,43 +44,29 @@ module Faceter
 
     private
 
-    # Adds a branch node of given type to the AST with a block,
-    # where subnodes should be defined.
-    #
-    # @example
-    #   builder.add_brahcn List do |list|
-    #     list.add_leaf SymbolizeKeys
-    #   end
-    #
-    # @param [Faceter::AST::Root] type
-    # @param [Array] args The arguments for the node
-    # @param [Proc] block
-    #
-    # @yield the block
-    #
-    # @return [Faceter::AST::Root] the current tree populated with a new node
-    #
-    # @raise [ArgumentError] if no block given
-    #
-    def add_branch(type, *args, &block)
-      child = self.class.new(type.new(*args))
-      child.instance_exec(&block)
-      tree << child.tree.valid
+    # Forwards all DSL commands to the [#__add__] method
+    def method_missing(name, *args, &block)
+      __add__(DSL::COMMANDS[name], *args, &block)
     end
 
-    # Adds a leaf node describing transformation to the AST
-    #
-    # @example
-    #   builder.add_leaf SymbolizeKeys
-    #
-    # @param [Faceter::AST::Node] type
-    # @param [Array] args The arguments for the node
-    # @param [Proc] block
-    #
-    # @return [Faceter::AST::Root] the current tree populated with a new node
-    #
-    def add_leaf(type, *args, &block)
-      tree << type.new(*args, &block)
+    def respond_to_missing?(name, *)
+      DSL.defines? name
+    end
+
+    # Factory method, that knows how to add any node to the tree
+    def __add__(type, *args, &block)
+      builder = type.branch? ? :__branch__ : :__node__
+      @tree += __send__(builder, type, *args, &block)
+    end
+
+    # Adds a branch (Field, List) to the tree
+    def __branch__(type, *args, &block)
+      self.class.new(__node__(type, *args), &block).tree
+    end
+
+    # Adds a simple node to the tree
+    def __node__(type, *args, &block)
+      type.new(*args, &block)
     end
 
   end # class Builder

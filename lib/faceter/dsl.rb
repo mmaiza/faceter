@@ -1,45 +1,45 @@
+# encoding: utf-8
+
 module Faceter
 
-  # The module provides the `defines` helper for adding
-  # DSL methods to the Builder
-  #
-  # @api private
+  # The container for specific branches to browse a data,
+  # and nodes to transform them
   #
   module DSL
 
-    # Defines DSL methods with given names
-    #
-    # @param [String, Array<String>] names
-    #
-    # @return [undefined]
-    #
-    def defines(*names)
-      names.flatten.each(&method(:__defines__))
-    end
+    # Autoloads all the content from "faceter/dsl/*" with DSL-specific classes
+    Dir[File.expand_path("../dsl/*.rb", __FILE__)].each(&method(:require))
 
-    private
+    # List of DSL commands pointing to a specific class to be added to AST
+    #
+    # @return [Hash<Symbol => Class>]
+    #
+    COMMANDS = {
+      add_prefix:     AddPrefix,
+      create:         Create,
+      exclude:        Exclude,
+      field:          Field,
+      fold:           Fold,
+      group:          Group,
+      list:           List,
+      remove_prefix:  RemovePrefix,
+      rename:         Rename,
+      stringify_keys: StringifyKeys,
+      symbolize_keys: SymbolizeKeys,
+      unfold:         Unfold,
+      ungroup:        Ungroup,
+      unwrap:         Unwrap,
+      wrap:           Wrap
+    }
 
-    # Returns the class for the DSL node
+    # Checks whether the DSL command is defined
     #
     # @param [Symbol] name
     #
-    # @return [Class]
+    # @return [Boolean]
     #
-    def inflector(name)
-      require_relative "ast/#{name}"
-      (Transproc[:camelize] >> Transproc[:constantize, AST])[name]
-    end
-
-    # Defines the DSL method
-    #
-    # @param [Symbol] name
-    #
-    # @return [undefined]
-    #
-    def __defines__(name)
-      node = inflector(name)
-      add  = node.branch? ? :add_branch : :add_leaf
-      define_method(name) { |*args, &block| __send__(add, node, *args, &block) }
+    def self.defines?(name)
+      nil ^ COMMANDS[name]
     end
 
   end # module DSL
