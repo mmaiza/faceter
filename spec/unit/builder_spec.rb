@@ -66,7 +66,7 @@ describe Faceter::Builder do
 
   describe "#respond_to_missing?" do
 
-    before { allow(Faceter::DSL).to receive(:defines?) { |name| name == :foo } }
+    before { allow(Faceter::DSL).to receive(:command?) { |name| name == :foo } }
 
     context "registered command" do
 

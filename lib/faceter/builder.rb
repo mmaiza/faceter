@@ -46,11 +46,11 @@ module Faceter
 
     # Forwards all DSL commands to the [#__add__] method
     def method_missing(name, *args, &block)
-      __add__(DSL::COMMANDS[name], *args, &block)
+      __add__(DSL.commands[name], *args, &block)
     end
 
     def respond_to_missing?(name, *)
-      DSL.defines? name
+      DSL.command? name
     end
 
     # Factory method, that knows how to add any node to the tree

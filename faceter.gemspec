@@ -19,7 +19,6 @@ Gem::Specification.new do |gem|
   gem.required_ruby_version = ">= 2.1"
 
   gem.add_runtime_dependency "transproc", "~> 0.2", "> 0.2.3"
-  gem.add_runtime_dependency "inflecto", "~> 0.0"
 
   gem.add_development_dependency "hexx-rspec", "~> 0.4"
   gem.add_development_dependency "rom", "~> 0.8"

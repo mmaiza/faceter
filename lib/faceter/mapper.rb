@@ -64,7 +64,7 @@ module Faceter
       end
 
       def respond_to_missing?(name, *)
-        DSL.defines?(name)
+        DSL.command?(name)
       end
 
     end # eigenclass
